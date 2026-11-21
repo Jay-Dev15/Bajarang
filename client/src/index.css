@@ -1,0 +1,142 @@
+@import 'tailwindcss';
+
+/*
+ * BAJARANG design tokens
+ * ----------------------
+ * Light theme only. Semantic colours are CSS variables, used through Tailwind.
+ * Brand: a calm leaf green. Prices use the strongest text colour for legibility.
+ */
+:root {
+  --bg: #f5f6f2;
+  --surface: #ffffff;
+  --surface-2: #f0f2ec;
+  --border: #e1e4dc;
+  --border-strong: #c9cec1;
+  --text: #17201a;
+  --text-muted: #5c6860;
+  --text-subtle: #7d877f;
+
+  --brand: #1b6b3a;
+  --brand-hover: #155830;
+  --brand-soft: #e3f1e6;
+  --brand-text: #135a2f;
+  --on-brand: #ffffff;
+
+  --danger: #b42318;
+  --danger-soft: #fdecea;
+  --warn: #9a5b00;
+  --warn-soft: #fdf3e1;
+  --ok: #17703a;
+  --ok-soft: #e4f4e8;
+
+  --focus: #2f8f52;
+  color-scheme: light;
+}
+
+@theme inline {
+  --font-sans: 'Noto Sans Gujarati', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-num: 'Inter', 'Noto Sans Gujarati', system-ui, sans-serif;
+
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-ink: var(--text);
+  --color-muted: var(--text-muted);
+  --color-subtle: var(--text-subtle);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-text: var(--brand-text);
+  --color-on-brand: var(--on-brand);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-focus: var(--focus);
+
+  --radius-card: 14px;
+  --radius-control: 10px;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-bg text-ink font-sans antialiased;
+    font-size: 16px;
+    line-height: 1.55;
+    min-height: 100dvh;
+    overflow-x: hidden;
+  }
+  /* Gujarati glyphs have tall matras; keep headings from clipping. */
+  h1, h2, h3 {
+    line-height: 1.35;
+  }
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+  input, select, textarea, button {
+    font: inherit;
+    color: inherit;
+  }
+  /* Prevent iOS zoom on focus: inputs must be >= 16px. */
+  input, select, textarea {
+    font-size: 16px;
+  }
+}
+
+@layer components {
+  /* The whole app is a mobile layout: one centred column, max 640px wide. */
+  .app-column {
+    width: 100%;
+    max-width: 640px;
+    margin-inline: auto;
+    background: var(--bg);
+  }
+  .num {
+    font-family: var(--font-num);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Wider than a phone: tint the area around the 640px column so it reads as an app. */
+@media (min-width: 641px) {
+  body {
+    background: var(--surface-2);
+  }
+  .app-column {
+    box-shadow: 0 0 0 1px var(--border);
+  }
+}
+
+@keyframes sheet-in {
+  from { transform: translateY(16px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-sheet { animation: sheet-in 180ms ease-out; }
+.animate-fade { animation: fade-in 150ms ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-sheet, .animate-fade { animation: none; }
+}
