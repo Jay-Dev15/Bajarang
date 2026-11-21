@@ -52,7 +52,9 @@ Bajarang/
 │       ├── pages/             Dashboard, Products, ProductForm, Purchase (ખરીદી), Categories, Login
 │       ├── services/api.js    all API calls
 │       └── utils/             formatting, search/filter, constants
-├── server/                    Express API (deploy as a web service)
+├── server/                    Express API (deploy as a Vercel project)
+│   ├── api/index.js           Vercel serverless entry (wraps the Express app)
+│   ├── vercel.json            routes all requests to the API, Mumbai region
 │   ├── src/
 │   │   ├── config/            env loading + MongoDB connection
 │   │   ├── models/            Product, Category, PriceHistory, PurchaseSource, PurchaseItem
@@ -153,7 +155,7 @@ To point them at another database, set `TEST_MONGODB_URI`.
 2. **Database Access** → *Add New Database User*: choose a username and a strong password, role *Read and write to any database*.
 3. **Network Access** → *Add IP Address*:
    - for local testing, *Add Current IP Address*;
-   - for a hosted backend (Render etc.), add `0.0.0.0/0`, because free hosts don't have fixed IPs. The database user password still protects the data.
+   - for the hosted backend (Vercel), add `0.0.0.0/0`, because Vercel has no fixed IP addresses. The database user password still protects the data.
 4. **Connect** → *Drivers* → copy the connection string and add the database name `bajarang`:
    ```
    mongodb+srv://USER:PASSWORD@cluster0.xxxxx.mongodb.net/bajarang?retryWrites=true&w=majority
@@ -165,35 +167,34 @@ To point them at another database, set `TEST_MONGODB_URI`.
 
 ## Deployment
 
-The frontend and backend deploy separately. Below is one free-friendly setup: **Render** for the API and **Vercel** or **Netlify** for the app. Any Node host and any static host will work.
+Everything runs on free plans: **Vercel** hosts both the API and the app (two Vercel projects from the same GitHub repository), and **MongoDB Atlas** stores the data.
 
-### Backend → Render (Web Service)
+- The API runs as a Vercel serverless function: `server/api/index.js` wraps the same Express app used locally, and `server/vercel.json` sends every request to it and runs it in the **Mumbai (`bom1`)** region, next to an Atlas cluster in Mumbai.
+- The database connection is reused between requests (`server/src/config/db.js`).
+- Note: the wrong-PIN limit (10 tries / 15 min) is kept in memory, so on serverless it is per instance and therefore less strict.
+
+### 1. Backend → Vercel project (`server`)
 
 1. Push this project to a private GitHub repository. `.env` files are gitignored, so check they are not committed.
-2. On https://render.com: *New → Web Service* → choose the repository.
-3. Settings:
-   - **Root Directory**: `server`
-   - **Build Command**: `npm install`
-   - **Start Command**: `npm start`
-4. **Environment variables**: `MONGODB_URI`, `APP_PIN`, `AUTH_SECRET`, `TOKEN_TTL_DAYS`, `NODE_ENV=production`, and `CLIENT_ORIGIN` (fill this in after the frontend is deployed, e.g. `https://bajarang.vercel.app`).
-5. Deploy, then open `https://<your-api>.onrender.com/api/health`. It should return `{"success":true,...}`.
+2. On https://vercel.com: **Add New → Project** → import the repository.
+3. **Root Directory**: `server`. Framework Preset: **Other**. Leave the build settings empty.
+4. **Environment Variables**: `MONGODB_URI`, `APP_PIN`, `AUTH_SECRET`, `TOKEN_TTL_DAYS` (optional), and `CLIENT_ORIGIN` (fill in after step 2 below, e.g. `https://bajarang.vercel.app`).
+5. Deploy, then open `https://<backend-project>.vercel.app/api/health`. It should return `{"success":true,"data":{"status":"ok"}}`.
 
-> Render's free tier sleeps after about 15 minutes without requests, so the first load after a quiet period can take 30–50 seconds. A paid instance or another host avoids this.
+### 2. Frontend → Vercel project (`client`)
 
-### Frontend → Vercel or Netlify (static site)
+1. **Add New → Project** → import the **same** repository again.
+2. **Root Directory**: `client`. Framework Preset: **Vite** (detected). Build `npm run build`, output `dist` (defaults).
+3. Environment variable: `VITE_API_URL=https://<backend-project>.vercel.app` (no trailing slash, no `/api`).
+4. Deploy. SPA routing is already configured in `client/vercel.json`.
 
-1. Import the same repository.
-2. Settings:
-   - **Root Directory / Base directory**: `client`
-   - **Build Command**: `npm run build`
-   - **Output Directory / Publish directory**: `dist`
-3. Environment variable: `VITE_API_URL=https://<your-api>.onrender.com` (no trailing slash, no `/api`).
-4. Deploy. SPA routing is already configured (`client/vercel.json` for Vercel, `client/public/_redirects` for Netlify).
+Other hosts also work: the backend runs anywhere Node runs (`npm start`), and the frontend is a static `dist` folder (`client/public/_redirects` covers Netlify).
 
 ### Connect the two
 
-- Set `CLIENT_ORIGIN` on the backend to the exact frontend URL (several URLs can be comma separated), then redeploy or restart the backend.
-- `VITE_API_URL` is baked in at build time, so if it changes, rebuild the frontend.
+- Set `CLIENT_ORIGIN` on the backend project to the exact frontend URL (several URLs can be comma separated), then **Redeploy** the backend (Vercel applies environment variables only to new deployments).
+- `VITE_API_URL` is baked in at build time, so if it changes, redeploy the frontend.
+- Every `git push` to `main` redeploys both projects automatically.
 
 ### Install on the phones
 
