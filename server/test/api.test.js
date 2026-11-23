@@ -247,7 +247,7 @@ test('invalid and unknown ids return 404, delete removes product and history', a
   assert.equal(count, 0);
 });
 
-test('purchase list: default sources, add, tick/cross, edit, rename source, no delete', async () => {
+test('purchase list: default sources, add, tick/cross, edit, rename source, delete', async () => {
   const unauth = await api('GET', '/purchase', undefined, { auth: false });
   assert.equal(unauth.status, 401);
 
@@ -284,8 +284,56 @@ test('purchase list: default sources, add, tick/cross, edit, rename source, no d
   const added = await api('POST', '/purchase/sources', { name: 'ડેરી' });
   assert.equal(added.status, 201);
 
-  assert.equal((await api('DELETE', `/purchase/items/${id}`)).status, 404); // no delete route
+  // Inline edit: name only (place unchanged), and saving puts it back in "to buy".
+  await api('PATCH', `/purchase/items/${id}/needed`, { needed: false });
+  const inline = await api('PUT', `/purchase/items/${id}`, { name: '5 કિલો બટાકા', needed: true });
+  assert.equal(inline.status, 200);
+  assert.equal(inline.body.data.name, '5 કિલો બટાકા');
+  assert.equal(inline.body.data.sourceId, baradi._id);
+  assert.equal(inline.body.data.needed, true);
+
   const after = await api('GET', '/purchase');
   assert.equal(after.body.data.items.length, 1);
   assert.equal(after.body.data.sources.at(-1).name, 'ડેરી');
+
+  assert.equal((await api('DELETE', `/purchase/items/${id}`)).status, 200);
+  assert.equal((await api('DELETE', `/purchase/items/${id}`)).status, 404);
+  assert.equal((await api('GET', '/purchase')).body.data.items.length, 0);
+});
+
+test('bootstrap returns products and categories with counts in one request', async () => {
+  const cat = await api('POST', '/categories', { nameGujarati: 'કઠોળ' });
+  const catId = cat.body.data._id;
+  for (const name of ['મગ', 'ચણા', 'અડદ']) {
+    await api('POST', '/products', { nameGujarati: name, categoryId: catId, sellingPrice1kg: 100 });
+  }
+  const r = await api('GET', '/bootstrap');
+  assert.equal(r.status, 200);
+  const { products, categories } = r.body.data;
+  assert.ok(products.length >= 3);
+  assert.equal(products[0].__v, undefined); // slim payload
+  assert.equal(products[0].lastUpdatedBy, undefined);
+  assert.equal(categories.find((c) => c._id === catId).productCount, 3);
+  assert.equal((await api('GET', '/bootstrap', undefined, { auth: false })).status, 401);
+});
+
+test('product list pagination: page, limit, total, hasMore', async () => {
+  const all = (await api('GET', '/products')).body;
+  assert.equal(all.meta, undefined); // no limit -> plain full list
+  const total = all.data.length;
+
+  const p1 = (await api('GET', '/products?limit=2&page=1')).body;
+  assert.equal(p1.data.length, 2);
+  assert.deepEqual(p1.meta, { page: 1, limit: 2, total, hasMore: total > 2 });
+
+  const last = Math.ceil(total / 2);
+  const pl = (await api('GET', `/products?limit=2&page=${last}`)).body;
+  assert.equal(pl.meta.hasMore, false);
+  assert.deepEqual(
+    [...p1.data, ...pl.data].map((p) => p._id).slice(0, 2),
+    all.data.slice(0, 2).map((p) => p._id)
+  );
+
+  const capped = (await api('GET', '/products?limit=999')).body;
+  assert.equal(capped.meta.limit, 100);
 });

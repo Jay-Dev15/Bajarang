@@ -20,6 +20,10 @@ function rethrowDuplicate(err) {
   throw err;
 }
 
+/** All categories, sorted by Gujarati name (no counts). Used by /bootstrap. */
+export const findAllCategories = () =>
+  Category.find({}, { __v: 0 }).collation({ locale: 'gu' }).sort({ nameGujarati: 1 }).lean();
+
 // GET /api/categories  -> categories with productCount, sorted by Gujarati name
 export async function listCategories(_req, res) {
   const [categories, counts] = await Promise.all([

@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 
 const chipBase =
-  'inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-[14px] font-medium transition-colors';
+  'inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[10px] border px-3.5 text-[14px] font-medium transition-colors';
 const chipOn = 'border-brand bg-brand text-on-brand';
 const chipOff = 'border-line-strong bg-surface text-ink hover:bg-surface-2';
 

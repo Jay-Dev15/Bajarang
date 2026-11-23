@@ -1,18 +1,17 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { AlertTriangle, Eye, EyeOff, History, Trash2 } from 'lucide-react';
+import { AlertTriangle, Eye, EyeOff, Trash2 } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
-import PriceHistoryModal from '../components/PriceHistoryModal';
 import Button from '../components/ui/Button';
-import Toggle from '../components/ui/Toggle';
 import { ConfirmDialog } from '../components/ui/Modal';
 import { TextField, PriceField, SelectField } from '../components/ui/Field';
-import { PageLoader, ErrorState } from '../components/ui/States';
+import { ErrorState } from '../components/ui/States';
+import { FormSkeleton } from '../components/ui/Skeleton';
 import { productApi } from '../services/api';
 import { useShopData } from '../context/ShopDataContext';
 import { useSettings } from '../context/SettingsContext';
 import { useToast } from '../context/ToastContext';
-import { OPERATORS, PRICE_FIELDS, WEIGHT_PRICES, PIECE_PRICE } from '../utils/constants';
+import { PRICE_FIELDS, WEIGHT_PRICES, PIECE_PRICE } from '../utils/constants';
 import { applyWeightAutofill, autoFilledKeys } from '../utils/priceAutofill';
 import { normalize } from '../utils/products';
 import { toInput, formatDateTime } from '../utils/format';
@@ -67,7 +66,6 @@ export default function ProductFormPage() {
   const settings = useSettings();
 
   const [form, setForm] = useState(() => ({ ...EMPTY, nameGujarati: searchParams.get('name') || '' }));
-  const [operator, setOperator] = useState(settings.operator || '');
   // Weight fields the user typed into (see utils/priceAutofill.js).
   const [manualOrder, setManualOrder] = useState([]);
   const [original, setOriginal] = useState(null);
@@ -77,42 +75,52 @@ export default function ProductFormPage() {
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
 
-  // Always load the latest copy from the server before editing prices.
+  // True once the user changes anything, so a late server copy never wipes their typing.
+  const touched = useRef(false);
+
+  // Open instantly from the copy already in the list, then load the latest copy
+  // from the server and use it if the user hasn't started editing yet.
   useEffect(() => {
     if (!isEdit) return;
     let cancelled = false;
+    const apply = (p) => {
+      setOriginal(p);
+      setForm(fromProduct(p));
+      // Saved weight prices are treated as typed by hand, so editing one never
+      // overwrites another saved price (keeps discounts). Empty weights still auto-fill.
+      setManualOrder(WEIGHT_PRICES.filter((w) => p[w.key] !== null && p[w.key] !== undefined).map((w) => w.key));
+      setLoadState('ready');
+    };
+    const listCopy = products.find((p) => p._id === id);
+    if (listCopy) apply(listCopy);
     productApi
       .get(id)
       .then((p) => {
         if (cancelled) return;
-        setOriginal(p);
-        setForm(fromProduct(p));
-        // Saved weight prices are treated as typed by hand, so editing one never
-        // overwrites the others (keeps discounts). Auto-fill only helps items
-        // that have no weight price yet (e.g. a piece-only item).
-        if (WEIGHT_PRICES.some((w) => p[w.key] !== null && p[w.key] !== undefined)) {
-          setManualOrder(WEIGHT_PRICES.map((w) => w.key));
-        }
-        setLoadState('ready');
+        if (!touched.current) apply(p);
+        else setOriginal(p);
       })
       .catch((err) => {
-        if (cancelled) return;
+        if (cancelled || listCopy) return; // the list copy is still usable
         setLoadError(err);
         setLoadState('error');
       });
     return () => {
       cancelled = true;
     };
+    // Only on open: later list refreshes must not reset the form.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, isEdit]);
 
   const set = (key) => (value) => {
+    touched.current = true;
     setForm((f) => ({ ...f, [key]: value }));
     if (errors[key] || errors.sellingPrices) setErrors((e) => ({ ...e, [key]: undefined, sellingPrices: undefined }));
   };
 
   const setWeight = (key) => (value) => {
+    touched.current = true;
     const order = manualOrder.includes(key) ? manualOrder : [...manualOrder, key];
     setManualOrder(order);
     setForm((f) => applyWeightAutofill({ ...f, [key]: value }, order));
@@ -123,6 +131,7 @@ export default function ProductFormPage() {
   // Show / hide a price in the price list (the value stays saved).
   const isHidden = (key) => form.hiddenPrices.includes(key);
   const toggleHidden = (key) => {
+    touched.current = true;
     setForm((f) => ({
       ...f,
       hiddenPrices: f.hiddenPrices.includes(key) ? f.hiddenPrices.filter((k) => k !== key) : [...f.hiddenPrices, key],
@@ -163,7 +172,7 @@ export default function ProductFormPage() {
       categoryId: form.categoryId || null,
       ...Object.fromEntries(PRICE_KEYS.map((k) => [k, num(form[k])])),
       hiddenPrices: form.hiddenPrices.filter((k) => form[k] !== ''),
-      updatedBy: operator,
+      updatedBy: settings.operator || '',
     };
     try {
       if (isEdit) {
@@ -175,7 +184,6 @@ export default function ProductFormPage() {
         upsertProduct(product);
         toast.success(`${product.nameGujarati} ઉમેરાઈ ગઈ`);
       }
-      if (operator !== settings.operator && operator) settings.update({ operator });
       goBack();
     } catch (err) {
       if (err.fields) setErrors(err.fields);
@@ -205,7 +213,7 @@ export default function ProductFormPage() {
     return (
       <>
         <PageHeader title={title} back="/products" />
-        <PageLoader label="વસ્તુની માહિતી લોડ થઈ રહી છે…" />
+        <FormSkeleton />
       </>
     );
   }
@@ -226,8 +234,15 @@ export default function ProductFormPage() {
         back="/products"
         actions={
           isEdit && (
-            <Button variant="ghost" size="icon" onClick={() => setShowHistory(true)} aria-label="ભાવમાં ફેરફાર" title="ભાવમાં ફેરફાર">
-              <History className="size-5" />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setConfirmDelete(true)}
+              aria-label="વસ્તુ કાઢી નાખો"
+              title="વસ્તુ કાઢી નાખો"
+              className="!text-danger hover:!bg-danger-soft"
+            >
+              <Trash2 className="size-5" />
             </Button>
           )
         }
@@ -256,17 +271,6 @@ export default function ProductFormPage() {
               </span>
             </p>
           )}
-          <TextField
-            label="અંગ્રેજી નામ"
-            optional
-            value={form.nameEnglish}
-            onChange={(e) => set('nameEnglish')(e.target.value)}
-            placeholder="Tomato"
-            maxLength={80}
-            hint="અંગ્રેજીમાં શોધવા માટે"
-            autoCapitalize="words"
-            enterKeyHint="next"
-          />
           <SelectField
             label="કેટેગરી"
             value={form.categoryId}
@@ -365,38 +369,6 @@ export default function ProductFormPage() {
           )}
         </section>
 
-        <section className="flex flex-col gap-4 rounded-[var(--radius-card)] border border-line bg-surface p-4">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-[15px] font-semibold">{form.isAvailable ? 'સ્ટોકમાં છે' : 'સ્ટોક નથી'}</p>
-              <p className="text-[13px] text-muted">સ્ટોક બહાર કરવાથી ભાવ સચવાયેલા રહેશે.</p>
-            </div>
-            <Toggle checked={form.isAvailable} onChange={set('isAvailable')} label="સ્ટોકમાં છે" />
-          </div>
-
-          <div className="border-t border-line pt-4">
-            <p className="mb-2 text-[14px] font-semibold">
-              ફેરફાર કરનાર <span className="font-normal text-subtle">(વૈકલ્પિક)</span>
-            </p>
-            <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="ફેરફાર કરનાર">
-              {['', ...OPERATORS].map((name) => (
-                <button
-                  key={name || 'none'}
-                  type="button"
-                  role="radio"
-                  aria-checked={operator === name}
-                  onClick={() => setOperator(name)}
-                  className={`h-10 rounded-full border px-4 text-[14px] font-medium transition-colors ${
-                    operator === name ? 'border-brand bg-brand-soft text-brand-text' : 'border-line-strong text-ink hover:bg-surface-2'
-                  }`}
-                >
-                  {name || 'નામ વગર'}
-                </button>
-              ))}
-            </div>
-          </div>
-        </section>
-
         <div className="sticky bottom-[calc(72px+env(safe-area-inset-bottom))] z-10 -mx-4 flex gap-3 border-t border-line bg-bg/95 px-4 py-3 backdrop-blur">
           <Button variant="secondary" size="lg" className="flex-1" onClick={goBack}>
             રદ કરો
@@ -406,16 +378,6 @@ export default function ProductFormPage() {
           </Button>
         </div>
 
-        {isEdit && (
-          <div className="mt-2 rounded-[var(--radius-card)] border border-line bg-surface p-4">
-            <p className="text-[14px] text-muted">
-              વસ્તુ હંમેશ માટે કાઢવી હોય તો જ વાપરો. થોડા સમય માટે ન હોય તો “સ્ટોક નથી” કરો.
-            </p>
-            <Button variant="danger-outline" icon={Trash2} className="mt-3" onClick={() => setConfirmDelete(true)}>
-              વસ્તુ કાઢી નાખો
-            </Button>
-          </div>
-        )}
       </form>
 
       <ConfirmDialog
@@ -428,7 +390,6 @@ export default function ProductFormPage() {
         message={`“${original?.nameGujarati}” અને તેના ભાવનો ઇતિહાસ હંમેશ માટે કાઢી નાખવામાં આવશે. આ પાછું નહીં થાય.`}
         confirmLabel="કાઢી નાખો"
       />
-      <PriceHistoryModal product={showHistory ? original : null} onClose={() => setShowHistory(false)} />
     </div>
   );
 }

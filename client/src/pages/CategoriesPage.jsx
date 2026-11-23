@@ -6,7 +6,8 @@ import Button from '../components/ui/Button';
 import Toggle from '../components/ui/Toggle';
 import { Modal, ConfirmDialog } from '../components/ui/Modal';
 import { TextField } from '../components/ui/Field';
-import { PageLoader, ErrorState, EmptyState } from '../components/ui/States';
+import { ErrorState, EmptyState } from '../components/ui/States';
+import { RowsSkeleton } from '../components/ui/Skeleton';
 import { categoryApi } from '../services/api';
 import { useShopData } from '../context/ShopDataContext';
 import { useToast } from '../context/ToastContext';
@@ -160,7 +161,7 @@ export default function CategoriesPage() {
         }
       />
 
-      {status === 'loading' && <PageLoader label="કેટેગરી લોડ થઈ રહી છે…" />}
+      {status === 'loading' && <RowsSkeleton rows={6} header={false} label="કેટેગરી લોડ થઈ રહી છે" />}
       {status === 'error' && <ErrorState message={error?.message} onRetry={() => refresh().catch(() => {})} />}
       {status === 'ready' && categories.length === 0 && (
         <EmptyState

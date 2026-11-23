@@ -81,15 +81,25 @@ export async function createItem(req, res) {
   ok(res, item, 201);
 }
 
-// PUT /api/purchase/items/:id { name, sourceId }
+// PUT /api/purchase/items/:id { name, sourceId?, needed? }
 export async function updateItem(req, res) {
   const item = await findItemOr404(req.params.id);
   item.name = readName(req.body, 80, 'વસ્તુનું નામ લખો.');
-  await assertSource(req.body.sourceId);
-  item.sourceId = req.body.sourceId;
+  if (req.body.sourceId !== undefined) {
+    await assertSource(req.body.sourceId);
+    item.sourceId = req.body.sourceId;
+  }
+  if (typeof req.body.needed === 'boolean') item.needed = req.body.needed;
   item.lastUpdatedBy = cleanString(req.body.updatedBy, 40);
   await item.save();
   ok(res, item);
+}
+
+// DELETE /api/purchase/items/:id
+export async function deleteItem(req, res) {
+  const item = await findItemOr404(req.params.id);
+  await item.deleteOne();
+  ok(res, { _id: item._id });
 }
 
 // PATCH /api/purchase/items/:id/needed { needed }
