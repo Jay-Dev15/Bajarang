@@ -7,7 +7,8 @@ import CategoryChips from '../components/CategoryChips';
 import ProductList from '../components/ProductList';
 import Button from '../components/ui/Button';
 import { SelectInput } from '../components/ui/Field';
-import { PageLoader, ErrorState, EmptyState } from '../components/ui/States';
+import { ErrorState, EmptyState } from '../components/ui/States';
+import { ProductListSkeleton } from '../components/ui/Skeleton';
 import { useShopData } from '../context/ShopDataContext';
 import { filterProducts } from '../utils/products';
 import { SORT_OPTIONS, STATUS_FILTERS } from '../utils/constants';
@@ -20,7 +21,7 @@ export default function ProductsPage() {
   // lose characters; the URL is updated afterwards (keeps search on back/refresh).
   const [search, setSearch] = useState(() => params.get('q') || '');
   const category = params.get('category') || '';
-  const stockStatus = params.get('status') || '';
+  const stockStatus = params.get('status') === 'unavailable' ? 'unavailable' : 'available';
   const sort = params.get('sort') || 'name';
 
   const setParam = (key, value) => {
@@ -52,7 +53,7 @@ export default function ProductsPage() {
     () => filterProducts(products, { search, category, status: stockStatus, sort }),
     [products, search, category, stockStatus, sort]
   );
-  const hasFilters = Boolean(search || category || stockStatus);
+  const hasFilters = Boolean(search || category || stockStatus === 'unavailable');
 
   return (
     <>
@@ -83,7 +84,7 @@ export default function ProductsPage() {
               <button
                 key={f.value}
                 type="button"
-                onClick={() => setParam('status', f.value)}
+                onClick={() => setParam('status', f.value === 'available' ? '' : f.value)}
                 aria-pressed={stockStatus === f.value}
                 className={`h-9 flex-1 rounded-lg px-2 text-[14px] font-medium transition-colors ${
                   stockStatus === f.value ? 'bg-brand-soft text-brand-text' : 'text-muted hover:text-ink'
@@ -110,7 +111,7 @@ export default function ProductsPage() {
         </div>
       </div>
 
-      {status === 'loading' && <PageLoader />}
+      {status === 'loading' && <ProductListSkeleton count={5} />}
       {status === 'error' && <ErrorState message={error?.message} onRetry={() => refresh().catch(() => {})} />}
 
       {status === 'ready' && (
@@ -127,7 +128,7 @@ export default function ProductsPage() {
           )}
 
           {results.length > 0 ? (
-            <ProductList products={results} />
+            <ProductList products={results} resetKey={`${search}|${category}|${stockStatus}|${sort}`} />
           ) : products.length === 0 ? (
             <EmptyState
               icon={PackageSearch}

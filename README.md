@@ -20,7 +20,7 @@ It is deliberately simple: it is not a billing, accounting, inventory or SaaS pr
 - **Price history**: every real price change is recorded with the time and an optional name (નારણભાઈ / વલ્લભભાઈ / જયદીપ).
 - **Typo guards on the form**: warns if a smaller weight costs more than a bigger one, if the selling price is below the purchase price, or if an item with the same name already exists.
 - **Categories**: add, rename, switch on/off. A category that still has items cannot be deleted.
-- **ખરીદી (daily purchase list)**: a shared list grouped by where to buy (માર્કેટ, બારડી, હરભોલે, અન્ય; rename or add places). Each item has ✓ (buy) / ✗ (not needed) and edit (e.g. "10 કિલો બટાકા", or move to another place). ✓ items stay on top, ✗ below. Items are never deleted, so they can be ticked again any time.
+- **ખરીદી (daily purchase list)**: a shared list with one tab per place to buy (માર્કેટ, બારડી, હરભોલે, અન્ય; rename or add places). Items to buy show ✗ (not needed); not-needed items show ✓ (buy again). Edit happens inline in the row: ✓ saves the name and moves the item to "to buy", 🗑 deletes it. The share button sends the place's to-buy list as plain text (WhatsApp, notes, SMS).
 - **Sync across phones**: data reloads when the app opens, when you return to it, and every 45 seconds.
 - **Shared PIN** access. The PIN is checked on the server and never stored in the frontend code.
 - **Remembers the operator**: the name picked in the product form is pre-selected next time on that phone.
@@ -240,7 +240,8 @@ Send `Authorization: Bearer <token>` on protected routes.
 | ------ | ---- | ----- |
 | POST | `/api/auth/login` | `{ pin }` → `{ token, expiresAt }` |
 | GET | `/api/auth/check` | checks the token |
-| GET | `/api/products` | query: `search`, `category` (id or `none`), `availability` (`available` / `unavailable`), `sort` (`name`, `-name`, `updated`) |
+| GET | `/api/bootstrap` | `{ products, categories }` in one request (what the app loads on open; categories include `productCount`) |
+| GET | `/api/products` | query: `search`, `category` (id or `none`), `availability` (`available` / `unavailable`), `sort` (`name`, `-name`, `updated`), optional `page` + `limit` (1-100) → adds `meta: { page, limit, total, hasMore }` |
 | GET | `/api/products/:id` | |
 | POST | `/api/products` | body: product fields + optional `updatedBy` |
 | PUT | `/api/products/:id` | full update; records PriceHistory only if a price changed |
@@ -256,8 +257,9 @@ Send `Authorization: Bearer <token>` on protected routes.
 | POST | `/api/purchase/sources` | `{ name }` add a place to buy from |
 | PUT | `/api/purchase/sources/:id` | `{ name }` rename |
 | POST | `/api/purchase/items` | `{ name, sourceId, updatedBy? }` (starts as ✓) |
-| PUT | `/api/purchase/items/:id` | `{ name, sourceId, updatedBy? }` edit name / move place |
-| PATCH | `/api/purchase/items/:id/needed` | `{ needed, updatedBy? }` ✓ = true, ✗ = false. Purchase items are never deleted. |
+| PUT | `/api/purchase/items/:id` | `{ name, sourceId?, needed?, updatedBy? }` edit name (place optional) |
+| PATCH | `/api/purchase/items/:id/needed` | `{ needed, updatedBy? }` ✓ = true, ✗ = false |
+| DELETE | `/api/purchase/items/:id` | delete an item |
 
 Price fields: `purchasePricePerKg`, `sellingPrice100g`, `sellingPrice250g`, `sellingPrice500g`, `sellingPrice1kg`, `sellingPricePerPiece`. Prices are numbers in INR, or `null` when not used; at least one selling price is required. `hiddenPrices` lists selling-price fields that are saved but not shown in the price list (at least one must stay visible).
 

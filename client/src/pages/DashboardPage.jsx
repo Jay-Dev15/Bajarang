@@ -6,7 +6,8 @@ import SearchBar from '../components/SearchBar';
 import CategoryChips from '../components/CategoryChips';
 import ProductList from '../components/ProductList';
 import Button from '../components/ui/Button';
-import { PageLoader, ErrorState, EmptyState } from '../components/ui/States';
+import { ErrorState, EmptyState } from '../components/ui/States';
+import { ProductListSkeleton, StatsSkeleton, ChipsSkeleton, Bone } from '../components/ui/Skeleton';
 import { useShopData } from '../context/ShopDataContext';
 import { useSettings } from '../context/SettingsContext';
 import { filterProducts } from '../utils/products';
@@ -76,7 +77,19 @@ export default function DashboardPage() {
 
       <SearchBar value={search} onChange={setSearch} placeholder="ભાવ જોવા વસ્તુ શોધો…" />
 
-      {status === 'loading' && <PageLoader />}
+      {status === 'loading' && (
+        <div className="mt-4 flex flex-col gap-6">
+          <StatsSkeleton />
+          <div>
+            <Bone className="mb-2.5 h-5 w-36" />
+            <ChipsSkeleton />
+          </div>
+          <div>
+            <Bone className="mb-2.5 h-5 w-44" />
+            <ProductListSkeleton count={3} />
+          </div>
+        </div>
+      )}
       {status === 'error' && <ErrorState message={error?.message} onRetry={manualRefresh} />}
 
       {status === 'ready' && search && (

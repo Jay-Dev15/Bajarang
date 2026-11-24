@@ -26,7 +26,17 @@ async function findProductOr404(id) {
   return product;
 }
 
-// GET /api/products?search=&category=&availability=available|unavailable&sort=name|-name|updated
+// Fields the price list never uses; leaving them out keeps responses small.
+const LIST_PROJECTION = { __v: 0, createdAt: 0, lastUpdatedBy: 0 };
+const MAX_PAGE_SIZE = 100;
+
+/** All products for the price list, in name order. Used by /bootstrap. */
+export const findAllProducts = () =>
+  Product.find({}, LIST_PROJECTION).collation(GUJARATI_COLLATION).sort(SORTS.name).lean();
+
+// GET /api/products?search=&category=&availability=available|unavailable&sort=name|-name|updated&page=&limit=
+// Without `limit` every match is returned. With `limit` (1-100) the response is one
+// page plus meta: { page, limit, total, hasMore }.
 export async function listProducts(req, res) {
   const { search, category, availability, sort } = req.query;
   const filter = {};
@@ -42,12 +52,21 @@ export async function listProducts(req, res) {
   if (availability === 'available') filter.isAvailable = true;
   else if (availability === 'unavailable') filter.isAvailable = false;
 
-  const products = await Product.find(filter)
+  const query = Product.find(filter, LIST_PROJECTION)
     .collation(GUJARATI_COLLATION)
     .sort(SORTS[sort] || SORTS.name)
     .lean();
 
-  ok(res, products);
+  const limit = Number.parseInt(req.query.limit, 10);
+  if (!Number.isInteger(limit) || limit < 1) return ok(res, await query);
+
+  const size = Math.min(limit, MAX_PAGE_SIZE);
+  const page = Math.max(Number.parseInt(req.query.page, 10) || 1, 1);
+  const [items, total] = await Promise.all([
+    query.skip((page - 1) * size).limit(size),
+    Product.countDocuments(filter),
+  ]);
+  ok(res, items, 200, { page, limit: size, total, hasMore: page * size < total });
 }
 
 export async function getProduct(req, res) {

@@ -15,7 +15,11 @@ export async function connectDB(uri) {
     mongoose.connection.on('error', (err) => console.error('[db] MongoDB error:', err.message));
 
     connecting = mongoose
-      .connect(uri, { serverSelectionTimeoutMS: 10000, maxPoolSize: 5 })
+      .connect(uri, {
+        serverSelectionTimeoutMS: 8000,
+        maxPoolSize: 10,
+        family: 4, // skip slow IPv6 lookups on some hosts
+      })
       .then(() => console.log(`[db] Connected to MongoDB (database: ${mongoose.connection.name})`))
       .catch((err) => {
         connecting = null; // allow a retry on the next request

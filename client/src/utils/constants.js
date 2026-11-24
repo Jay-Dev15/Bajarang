@@ -7,8 +7,8 @@ export const SORT_OPTIONS = [
   { value: 'updated', label: 'છેલ્લે બદલાયેલ પહેલાં' },
 ];
 
+// In stock is the default view; there is no "all" option.
 export const STATUS_FILTERS = [
-  { value: '', label: 'બધી' },
   { value: 'available', label: 'સ્ટોકમાં' },
   { value: 'unavailable', label: 'સ્ટોક નથી' },
 ];

@@ -1,9 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { categoryApi, productApi } from '../services/api';
+import { bootstrapApi } from '../services/api';
 import { sortCategories } from '../utils/products';
+import { cache } from '../utils/cache';
 
 const ShopDataContext = createContext(null);
 const REFRESH_INTERVAL_MS = 45_000;
+const CACHE_KEY = 'shop';
 
 /**
  * Holds the shared product and category lists.
@@ -12,18 +14,26 @@ const REFRESH_INTERVAL_MS = 45_000;
  * same latest prices.
  */
 export function ShopDataProvider({ children }) {
-  const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [status, setStatus] = useState('loading'); // loading | ready | error
+  // Start from the copy saved on this device (if any): the list shows at once,
+  // and the fresh copy from the server replaces it a moment later.
+  const [saved] = useState(() => cache.get(CACHE_KEY));
+  const [products, setProducts] = useState(() => saved?.data.products || []);
+  const [categories, setCategories] = useState(() => sortCategories(saved?.data.categories || []));
+  const [status, setStatus] = useState(saved ? 'ready' : 'loading'); // loading | ready | error
   const [error, setError] = useState(null);
-  const [lastSyncedAt, setLastSyncedAt] = useState(null);
+  const [lastSyncedAt, setLastSyncedAt] = useState(() => (saved ? new Date(saved.savedAt) : null));
   const inFlight = useRef(null);
+
+  // Keep the saved copy in step with every change (refresh, add, edit, delete).
+  useEffect(() => {
+    if (status === 'ready') cache.set(CACHE_KEY, { products, categories });
+  }, [products, categories, status]);
 
   const refresh = useCallback(async () => {
     if (inFlight.current) return inFlight.current;
     inFlight.current = (async () => {
       try {
-        const [p, c] = await Promise.all([productApi.list(), categoryApi.list()]);
+        const { products: p, categories: c } = await bootstrapApi.get();
         setProducts(p);
         setCategories(sortCategories(c));
         setStatus('ready');

@@ -23,6 +23,9 @@ export function errorHandler(err, _req, res, _next) {
   } else if (err?.code === 11000) {
     status = 409;
     body = { message: 'આ નામ પહેલેથી છે.', code: 'DUPLICATE' };
+  } else if (/^Mongo(ServerSelection|Network|NotConnected)/.test(err?.name || '') || err?.name === 'MongooseServerSelectionError') {
+    status = 503;
+    body = { message: 'ડેટાબેઝ સાથે જોડાણ થયું નહીં. થોડી વાર પછી ફરી પ્રયાસ કરો.', code: 'DB_UNAVAILABLE' };
   } else if (err?.type === 'entity.parse.failed') {
     status = 400;
     body = { message: 'મોકલેલી માહિતી વાંચી શકાઈ નહીં.', code: 'BAD_JSON' };

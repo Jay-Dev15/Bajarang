@@ -5,12 +5,12 @@ import { WEIGHT_PRICES } from './constants';
  *
  * - `manualOrder` lists the weight fields the user typed into, in the order typed.
  * - The first of those that has a value is the "base" price.
- * - Every weight field the user has NOT typed into, and that is heavier than the
- *   base, is filled proportionally (rounded to whole rupees):
- *     250 ગ્રામ = ₹20  →  500 ગ્રામ = ₹40, 1 કિલો = ₹80
+ * - Every weight field the user has NOT typed into (lighter or heavier) is filled
+ *   proportionally from the base, rounded to whole rupees:
+ *     1 કિલો = ₹135  →  100 ગ્રામ = ₹14, 250 ગ્રામ = ₹34, 500 ગ્રામ = ₹68
  * - Fields the user typed into are never overwritten, so discounts like
  *   ₹20 / ₹35 / ₹60 stay exactly as entered.
- * - Lighter fields are not auto-filled (typing only "1 કિલો" for potatoes adds nothing else).
+ * - Clearing an auto-filled field marks it as typed, so it stays empty.
  */
 export function applyWeightAutofill(form, manualOrder) {
   const manual = new Set(manualOrder);
@@ -21,7 +21,7 @@ export function applyWeightAutofill(form, manualOrder) {
   const next = { ...form };
   for (const w of WEIGHT_PRICES) {
     if (manual.has(w.key)) continue;
-    next[w.key] = base && w.grams > base.grams ? String(Math.round((Number(form[base.key]) * w.grams) / base.grams)) : '';
+    next[w.key] = base ? String(Math.round((Number(form[base.key]) * w.grams) / base.grams)) : '';
   }
   return next;
 }

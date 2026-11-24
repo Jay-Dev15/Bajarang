@@ -27,6 +27,8 @@ const productSchema = new mongoose.Schema(
 
 productSchema.index({ categoryId: 1 });
 productSchema.index({ updatedAt: -1 });
+// Price list: stock filter + Gujarati name order (collation must match the query).
+productSchema.index({ isAvailable: 1, nameGujarati: 1 }, { collation: { locale: 'gu' } });
 
 export const SELLING_PRICE_FIELDS = [
   'sellingPrice100g',

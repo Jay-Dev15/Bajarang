@@ -11,10 +11,11 @@ const NAV = [
 
 function OfflineBanner() {
   const { error, status } = useShopData();
-  if (!error || status !== 'ready' || error.code !== 'NETWORK') return null;
+  // Data is on screen (saved copy or older fetch) but the latest refresh failed.
+  if (!error || status !== 'ready' || error.status === 401) return null;
   return (
-    <div className="bg-warn-soft px-4 py-2 text-center text-[13px] font-medium text-warn">
-      સર્વર સાથે જોડાણ નથી – દેખાતા ભાવ જૂના હોઈ શકે છે.
+    <div className="bg-warn-soft px-4 py-2 text-center text-[13px] font-medium text-warn" role="status">
+      {error.code === 'NETWORK' ? 'સર્વર સાથે જોડાણ નથી' : 'નવા ભાવ લાવી શકાયા નહીં'} – દેખાતા ભાવ જૂના હોઈ શકે છે.
     </div>
   );
 }
